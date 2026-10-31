@@ -30,11 +30,21 @@ export async function buildApp() {
   const app = Fastify({ loggerInstance: logger, trustProxy: true });
   await app.register(helmet, { contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } });
   const allowedOrigins = new Set(
-    [process.env.WEB_ORIGIN, "http://localhost:3847", "http://127.0.0.1:3847"].filter((origin): origin is string => Boolean(origin)),
+    [process.env.WEB_ORIGIN, process.env.RENDER_EXTERNAL_URL, "http://localhost:3847", "http://127.0.0.1:3847", "http://localhost:10000", "http://127.0.0.1:10000"].filter(
+      (origin): origin is string => Boolean(origin),
+    ),
   );
+  const localDevHost = (origin: string) => {
+    try {
+      const host = new URL(origin).hostname;
+      return host === "localhost" || host === "127.0.0.1";
+    } catch {
+      return false;
+    }
+  };
   await app.register(cors, {
     origin: (origin, callback) => {
-      callback(null, !origin || allowedOrigins.has(origin));
+      callback(null, !origin || allowedOrigins.has(origin) || localDevHost(origin));
     },
     credentials: true,
   });
@@ -63,13 +73,17 @@ export async function buildApp() {
       db = "down";
     }
     try {
-      const pong = await redis.ping();
-      if (pong !== "PONG") cache = "down";
+      if (!redis || redis.status !== "ready") cache = "down";
+      else {
+        const pong = await redis.ping();
+        if (pong !== "PONG") cache = "down";
+      }
     } catch {
       cache = "down";
     }
-    const body = { ok: db === "ok" && cache === "ok", db, redis: cache, demoMode: isDemoMode() };
-    return reply.code(body.ok ? 200 : 503).send(body);
+    // Database is required. Redis is optional: the service stays up and the live tape falls back in-process.
+    const body = { ok: db === "ok", db, redis: cache, demoMode: isDemoMode() };
+    return reply.code(db === "ok" ? 200 : 503).send(body);
   });
 
   app.get("/metrics", async (_request, reply) => {

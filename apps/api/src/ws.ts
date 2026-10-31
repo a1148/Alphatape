@@ -4,6 +4,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { logger } from "./logger";
 import { wsClients } from "./metrics";
 import { redis } from "./redis";
+import { onLocalTape } from "./tape";
 
 const COOKIE = "alphatape_token";
 
@@ -47,9 +48,7 @@ export function attachWebsocket(server: Server) {
     socket.on("close", () => wsClients.set(wss.clients.size));
   });
 
-  const sub = redis.duplicate();
-  sub.subscribe("tape").catch((error) => logger.error({ err: error }, "ws subscribe failed"));
-  sub.on("message", (_channel, message) => {
+  const deliver = (message: string) => {
     let parsed: { type?: string; userId?: string } | null = null;
     try {
       parsed = JSON.parse(message) as { type?: string; userId?: string };
@@ -61,7 +60,19 @@ export function attachWebsocket(server: Server) {
       if (parsed?.type === "alert" && parsed.userId && users.get(client) !== parsed.userId) continue;
       client.send(message);
     }
-  });
+  };
+  onLocalTape(deliver);
+  // Embedded worker delivers in-process. A separate worker publishes on Redis.
+  if (process.env.EMBED_WORKER !== "1" && redis) {
+    const sub = redis.duplicate();
+    sub.on("error", (error) => logger.warn({ err: error.message }, "redis subscribe failed"));
+    const subscribe = () => {
+      sub.subscribe("tape").catch((error) => logger.warn({ err: error instanceof Error ? error.message : "redis" }, "ws subscribe failed"));
+    };
+    if (sub.status === "wait") sub.connect().then(subscribe).catch((error) => logger.warn({ err: error instanceof Error ? error.message : "redis" }, "redis subscribe connect failed"));
+    else subscribe();
+    sub.on("message", (_channel, message) => deliver(message));
+  }
 
   const ping = setInterval(() => {
     for (const client of wss.clients) {

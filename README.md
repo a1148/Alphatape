@@ -80,6 +80,10 @@ The score is computed in `packages/shared` from stored inputs. Missing inputs ar
 
 The web UI is served at both [http://localhost:3847](http://localhost:3847) and [http://127.0.0.1:3847](http://127.0.0.1:3847). The API health check is [http://localhost:3848/health](http://localhost:3848/health) or [http://127.0.0.1:3848/health](http://127.0.0.1:3848/health). Dev mode allows both hosts so the page hydrates and the browser calls the API on the same hostname.
 
+### Render
+
+`Dockerfile.render` (context: repository root) runs the production web server, API, websocket, and worker behind one port (`$PORT`). `GET /health` is on that port. Leave `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` unset so the browser uses the public origin (`https` and `wss`). Required env: `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`. `REDIS_URL` is optional; without it the cache is skipped and live ticks stay in-process. `render.yaml` is the matching blueprint. On boot the container applies migrations and the idempotent demo seed.
+
 `DATA_MODE=auto` (default): demo random-walk while no quote provider is configured; live refresh when any quote key is set. Live refresh replaces demo figures. Fields the provider does not return stay null.
 
 ### Providers

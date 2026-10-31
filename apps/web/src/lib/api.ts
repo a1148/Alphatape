@@ -10,13 +10,21 @@ function withPageHostname(configured: string | undefined, fallbackPort: string, 
   }
 }
 
-/** Matches the page host so a tab on 127.0.0.1 does not call localhost (a different CORS origin). */
+/**
+ * Same origin when NEXT_PUBLIC_API_URL is unset (Render, and any single-port deploy).
+ * A configured URL keeps its port and follows the page hostname, so localhost and 127.0.0.1 both work in split dev.
+ */
 export function apiUrl(): string {
+  if (typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL) return window.location.origin;
   const protocol = typeof window !== "undefined" && window.location.protocol === "https:" ? "https:" : "http:";
   return withPageHostname(process.env.NEXT_PUBLIC_API_URL, "3848", protocol);
 }
 
 export function wsUrl(): string {
+  if (typeof window !== "undefined" && !process.env.NEXT_PUBLIC_WS_URL) {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}/ws`;
+  }
   const protocol = typeof window !== "undefined" && window.location.protocol === "https:" ? "wss:" : "ws:";
   const origin = withPageHostname(process.env.NEXT_PUBLIC_WS_URL, "3848", protocol);
   return `${origin}/ws`;

@@ -2,14 +2,13 @@ import http from "node:http";
 import { prisma } from "@alphatape/db";
 import { createHub, hasLiveMarketProvider } from "@alphatape/providers";
 import { indicatorsFromBars, presentStock, type BarPoint, type ProvenanceMap } from "@alphatape/shared";
-import { Redis } from "ioredis";
 import nodemailer from "nodemailer";
 import pino from "pino";
 import client from "prom-client";
 import { toRaw } from "../../api/src/map.ts";
+import { publishTape } from "../../api/src/tape.ts";
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:63799/0");
 const register = new client.Registry();
 client.collectDefaultMetrics({ register });
 const ticks = new client.Counter({ name: "alphatape_demo_ticks_total", help: "Demo quote ticks", registers: [register] });
@@ -28,7 +27,7 @@ function roundPrice(price: number) {
 }
 
 async function publish(message: unknown) {
-  await redis.publish("tape", JSON.stringify(message));
+  await publishTape(message);
 }
 
 async function maybeEmail(to: string, subject: string, text: string) {
@@ -365,17 +364,44 @@ function every(ms: number, fn: () => Promise<void>) {
   return setInterval(run, ms);
 }
 
-logger.info({ demo: demoMode() }, "worker starting");
-if (demoMode()) {
-  every(Number(process.env.DEMO_TICK_MS ?? 2000), demoTick);
-} else {
-  every(Number(process.env.QUOTE_REFRESH_MS ?? 60_000), refreshQuotes);
-  every(Number(process.env.BARS_REFRESH_MS ?? 1_800_000), refreshBars);
-  every(Number(process.env.FUNDAMENTAL_REFRESH_MS ?? 21_600_000), refreshFundamentals);
-  every(Number(process.env.NEWS_REFRESH_MS ?? 900_000), refreshNews);
-  every(Number(process.env.FUNDAMENTAL_REFRESH_MS ?? 21_600_000), refreshDividends);
-  every(86_400_000, classifyWithLlm);
+let workerStarted = false;
+
+export function startWorker() {
+  if (workerStarted) return;
+  workerStarted = true;
+  logger.info({ demo: demoMode(), embedded: process.env.EMBED_WORKER === "1" }, "worker starting");
+  if (demoMode()) {
+    every(Number(process.env.DEMO_TICK_MS ?? 2000), demoTick);
+  } else {
+    every(Number(process.env.QUOTE_REFRESH_MS ?? 60_000), refreshQuotes);
+    every(Number(process.env.BARS_REFRESH_MS ?? 1_800_000), refreshBars);
+    every(Number(process.env.FUNDAMENTAL_REFRESH_MS ?? 21_600_000), refreshFundamentals);
+    every(Number(process.env.NEWS_REFRESH_MS ?? 900_000), refreshNews);
+    every(Number(process.env.FUNDAMENTAL_REFRESH_MS ?? 21_600_000), refreshDividends);
+    every(86_400_000, classifyWithLlm);
+  }
+  every(5_000, evaluateAlerts);
+  if (process.env.EMBED_WORKER === "1") return;
+  const metricsPort = Number(process.env.WORKER_METRICS_PORT ?? 3849);
+  http.createServer(async (req, res) => {
+    if (req.url === "/health") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, demoMode: demoMode() }));
+      return;
+    }
+    if (req.url === "/metrics") {
+      res.writeHead(200, { "content-type": register.contentType });
+      res.end(await register.metrics());
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  }).listen(metricsPort, "0.0.0.0");
 }
+
+const entry = process.argv[1] ?? "";
+if (entry.includes("apps/worker")) startWorker();
+
 async function refreshDividends() {
   const hub = createHub(process.env, { warn: (obj, msg) => logger.warn(obj, msg) });
   const stocks = await prisma.stock.findMany({ where: { active: true, lists: { has: "dividend" } } });
@@ -400,20 +426,3 @@ async function refreshDividends() {
   }
 }
 
-every(5_000, evaluateAlerts);
-
-const metricsPort = Number(process.env.WORKER_METRICS_PORT ?? 3849);
-http.createServer(async (req, res) => {
-  if (req.url === "/health") {
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: true, demoMode: demoMode() }));
-    return;
-  }
-  if (req.url === "/metrics") {
-    res.writeHead(200, { "content-type": register.contentType });
-    res.end(await register.metrics());
-    return;
-  }
-  res.writeHead(404);
-  res.end();
-}).listen(metricsPort, "0.0.0.0");

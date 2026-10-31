@@ -168,8 +168,13 @@ export async function generateAnalysis(row: StockRow, locale: "he" | "en", force
 }
 
 export async function allowAiCall(bucket: string): Promise<boolean> {
-  const key = `ai:${bucket}`;
-  const count = await redis.incr(key);
-  if (count === 1) await redis.expire(key, 3600);
-  return count <= 20;
+  if (!redis || redis.status !== "ready") return true;
+  try {
+    const key = `ai:${bucket}`;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, 3600);
+    return count <= 20;
+  } catch {
+    return true;
+  }
 }

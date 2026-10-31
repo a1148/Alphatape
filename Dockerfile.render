@@ -1,0 +1,36 @@
+# Single-container AlphaTape image for Render.
+# Build context: repository root.
+#   docker build -f Dockerfile.render -t alphatape-render .
+# The process listens on $PORT. The browser uses that same origin for pages, /api, and /ws.
+
+FROM node:22-bookworm-slim AS build
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/package.json
+COPY apps/api/package.json apps/api/package.json
+COPY apps/worker/package.json apps/worker/package.json
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/db/package.json packages/db/package.json
+COPY packages/providers/package.json packages/providers/package.json
+RUN npm ci
+COPY . .
+RUN npx prisma generate --schema packages/db/prisma/schema.prisma
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+# Leave NEXT_PUBLIC_API_URL and NEXT_PUBLIC_WS_URL unset so the browser stays on this origin.
+RUN npm run build -w @alphatape/web
+
+FROM node:22-bookworm-slim AS runner
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV API_HOST=127.0.0.1
+ENV API_PORT=3848
+ENV WEB_PORT=3000
+ENV EMBED_WORKER=1
+ENV PORT=10000
+COPY --from=build /app /app
+EXPOSE 10000
+CMD ["node", "scripts/render-start.mjs"]
