@@ -4,11 +4,15 @@ const net = await import("node:net");
 
 function tryOnce() {
   return new Promise((resolve) => {
-    const socket = net.connect(port, host, () => {
-      socket.end();
-      resolve(true);
-    });
-    socket.on("error", () => resolve(false));
+    const socket = net.connect({ host, port });
+    const finish = (ok) => {
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(2000);
+    socket.on("connect", () => finish(true));
+    socket.on("timeout", () => finish(false));
+    socket.on("error", () => finish(false));
   });
 }
 

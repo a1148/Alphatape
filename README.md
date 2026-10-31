@@ -27,8 +27,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
-הדפדפן: [http://localhost:3847](http://localhost:3847)  
-API: [http://localhost:3848/health](http://localhost:3848/health)
+הדפדפן עובד גם ב-[http://localhost:3847](http://localhost:3847) וגם ב-[http://127.0.0.1:3847](http://127.0.0.1:3847).  
+API: [http://localhost:3848/health](http://localhost:3848/health) או [http://127.0.0.1:3848/health](http://127.0.0.1:3848/health).
 
 פיתוח מקומי, רק בסיס הנתונים בדוקר:
 
@@ -77,6 +77,8 @@ flowchart LR
 ```
 
 The score is computed in `packages/shared` from stored inputs. Missing inputs are dropped and the remaining weights are renormalized. They are not treated as zero. A stored number with no provenance is withheld and shown as N/A.
+
+The web UI is served at both [http://localhost:3847](http://localhost:3847) and [http://127.0.0.1:3847](http://127.0.0.1:3847). The API health check is [http://localhost:3848/health](http://localhost:3848/health) or [http://127.0.0.1:3848/health](http://127.0.0.1:3848/health). Dev mode allows both hosts so the page hydrates and the browser calls the API on the same hostname.
 
 `DATA_MODE=auto` (default): demo random-walk while no quote provider is configured; live refresh when any quote key is set. Live refresh replaces demo figures. Fields the provider does not return stay null.
 
