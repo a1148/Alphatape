@@ -28,8 +28,16 @@ import { cachedJson, redis } from "./redis";
 
 export async function buildApp() {
   const app = Fastify({ loggerInstance: logger, trustProxy: true });
-  await app.register(helmet, { contentSecurityPolicy: false });
-  await app.register(cors, { origin: process.env.WEB_ORIGIN ?? "http://localhost:3847", credentials: true });
+  await app.register(helmet, { contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } });
+  const allowedOrigins = new Set(
+    [process.env.WEB_ORIGIN, "http://localhost:3847", "http://127.0.0.1:3847"].filter((origin): origin is string => Boolean(origin)),
+  );
+  await app.register(cors, {
+    origin: (origin, callback) => {
+      callback(null, !origin || allowedOrigins.has(origin));
+    },
+    credentials: true,
+  });
   await app.register(cookie);
   await app.register(rateLimit, { max: Number(process.env.RATE_LIMIT_MAX ?? 180), timeWindow: "1 minute" });
 

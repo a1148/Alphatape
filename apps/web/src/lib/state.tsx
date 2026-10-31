@@ -3,7 +3,7 @@
 import { applyTick, normalizeWeights, rescore, type StockRow, type Weights } from "@alphatape/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { api, WS_URL } from "./api";
+import { api, wsUrl } from "./api";
 
 export interface SessionUser { id: string; email: string; name: string; locale: string; weights?: unknown }
 export interface ProviderInfo { id: string; name: string; configured: boolean; official: boolean; disabledReason: string | null; taseSupport: string; taseNotes: string }
@@ -64,7 +64,7 @@ export function AppState({ children }: { children: React.ReactNode }) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let stopped = false;
     const connect = () => {
-      socket = new WebSocket(WS_URL);
+      socket = new WebSocket(wsUrl());
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as { type?: string; items?: Array<{ symbol: string; price: number; change: number | null; changePercent: number | null; volume: number | null; asOf: string; source: string }>; notification?: { title: string; body: string } };
         if (msg.type === "quotes" && msg.items) {
