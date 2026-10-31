@@ -82,7 +82,13 @@ export async function buildApp() {
       cache = "down";
     }
     // Database is required. Redis is optional: the service stays up and the live tape falls back in-process.
-    const body = { ok: db === "ok", db, redis: cache, demoMode: isDemoMode() };
+    const body = {
+      ok: db === "ok",
+      db,
+      engine: process.env.ALPHATAPE_DB === "embedded" ? "embedded" : "postgres",
+      redis: cache,
+      demoMode: isDemoMode(),
+    };
     return reply.code(db === "ok" ? 200 : 503).send(body);
   });
 

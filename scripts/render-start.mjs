@@ -27,18 +27,24 @@ async function waitForHttp(url) {
   throw new Error(`Timed out waiting for ${url}`);
 }
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  console.error("DATABASE_URL is required");
-  process.exit(1);
-}
 if (!process.env.JWT_SECRET) {
   console.error("JWT_SECRET is required");
   process.exit(1);
 }
 
-const db = new URL(databaseUrl);
-await wait(db.hostname, db.port || "5432");
+let embedded = null;
+let databaseUrl = process.env.DATABASE_URL?.trim() || "";
+if (!databaseUrl) {
+  const { startEmbeddedPostgres } = await import("./embedded-postgres.mjs");
+  embedded = await startEmbeddedPostgres();
+  databaseUrl = embedded.url;
+  process.env.DATABASE_URL = databaseUrl;
+  process.env.ALPHATAPE_DB = "embedded";
+} else {
+  process.env.ALPHATAPE_DB = "postgres";
+  const db = new URL(databaseUrl);
+  await wait(db.hostname, db.port || "5432");
+}
 
 if (process.env.REDIS_URL) {
   try {
@@ -56,7 +62,7 @@ await run("npx", ["tsx", "packages/db/src/seed.ts"]);
 
 const apiPort = process.env.API_PORT || "3848";
 const webPort = process.env.WEB_PORT || "3000";
-const api = spawn("npx", ["tsx", "apps/api/src/index.ts"], {
+const api = spawn(process.execPath, ["node_modules/tsx/dist/cli.mjs", "apps/api/src/index.ts"], {
   stdio: "inherit",
   env: {
     ...process.env,
@@ -66,7 +72,7 @@ const api = spawn("npx", ["tsx", "apps/api/src/index.ts"], {
     PORT: apiPort,
   },
 });
-const web = spawn("npx", ["next", "start", "-H", "127.0.0.1", "-p", webPort], {
+const web = spawn(process.execPath, ["../../node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", webPort], {
   stdio: "inherit",
   cwd: "apps/web",
   env: {
@@ -76,9 +82,10 @@ const web = spawn("npx", ["next", "start", "-H", "127.0.0.1", "-p", webPort], {
   },
 });
 
-function stop() {
+async function stop() {
   api.kill("SIGTERM");
   web.kill("SIGTERM");
+  if (embedded) await embedded.stop();
   process.exit(0);
 }
 process.on("SIGTERM", stop);

@@ -1,5 +1,8 @@
 # Render Blueprint for AlphaTape.
-# One public web service. Postgres and Key Value stay on Render's private network.
+# One free web service. No Render Postgres and no Key Value.
+# When DATABASE_URL is unset the container runs a local Postgres and seeds demo data.
+# Set DATABASE_URL to a Postgres URL to use an external database instead.
+# REDIS_URL is optional. Without it, cache is skipped and live ticks stay in-process.
 # Docker context is the repository root. Dockerfile path is Dockerfile.render.
 # Health check: GET /health on $PORT.
 
@@ -18,24 +21,3 @@ services:
         value: auto
       - key: JWT_SECRET
         generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: alphatape-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: alphatape-kv
-          type: keyvalue
-          property: connectionString
-
-  - type: keyvalue
-    name: alphatape-kv
-    plan: free
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []
-
-databases:
-  - name: alphatape-db
-    plan: free
-    databaseName: alphatape
-    user: alphatape
