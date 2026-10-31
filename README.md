@@ -30,6 +30,13 @@ docker compose up --build
 הדפדפן עובד גם ב-[http://localhost:3847](http://localhost:3847) וגם ב-[http://127.0.0.1:3847](http://127.0.0.1:3847).  
 API: [http://localhost:3848/health](http://localhost:3848/health) או [http://127.0.0.1:3848/health](http://127.0.0.1:3848/health).
 
+ספייס Docker ב-Hugging Face (בלי כרטיס אשראי), פורט 7860, משתמש uid 1000, חומרה cpu-basic:
+
+```bash
+scripts/build-hf-space.sh /tmp/alphatape-space
+HF_TOKEN=hf_... HF_SPACE=username/alphatape scripts/deploy-hf-space.sh
+```
+
 פיתוח מקומי, רק בסיס הנתונים בדוקר:
 
 ```bash
@@ -85,6 +92,20 @@ The web UI is served at both [http://localhost:3847](http://localhost:3847) and 
 `Dockerfile.render` (context: repository root) runs the production web server, API, websocket, and worker behind one port (`$PORT`). `GET /health` is on that port. Leave `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` unset so the browser uses the public origin (`https` and `wss`). Required env: `JWT_SECRET` and `NODE_ENV=production`. `DATABASE_URL` is optional. When it is unset, the container starts a local Postgres on `127.0.0.1` with its data under `/tmp/alphatape-pg`, applies the same Prisma migrations, and runs the idempotent demo seed. Auth, watchlists, and alerts use that database. When `DATABASE_URL` is set, the container uses that Postgres server instead and does not start the local one. `REDIS_URL` is optional; without it the cache is skipped and live ticks stay in-process. `/health` stays `ok` in the embedded mode (`engine` is `embedded`, `redis` may be `down`). `render.yaml` is the matching single-service blueprint. PGlite was tried and left idle at about 500 MB RSS, which does not fit the 512 MB instance next to the web server and API.
 
 `DATA_MODE=auto` (default): demo random-walk while no quote provider is configured; live refresh when any quote key is set. Live refresh replaces demo figures. Fields the provider does not return stay null.
+
+### Hugging Face Space
+
+A free Docker Space runs the same single container on port 7860 as uid 1000. The hardware target is CPU basic (2 vCPU, 16 GB). There is no persistent disk: when `DATABASE_URL` is unset, embedded Postgres keeps its data under `/tmp` and `initdb` runs as the current user.
+
+```bash
+scripts/build-hf-space.sh /tmp/alphatape-space
+docker build -t alphatape-hf /tmp/alphatape-space
+docker run --rm --user 1000:1000 -p 7860:7860 -e JWT_SECRET=replace-me alphatape-hf
+
+HF_TOKEN=hf_... HF_SPACE=username/alphatape scripts/deploy-hf-space.sh
+```
+
+`build-hf-space.sh <target-dir>` copies the app, writes a root `Dockerfile` derived from `Dockerfile.render` (`user` uid 1000, `PORT=7860`), and writes the Space `README.md` card. It skips `.git`, `node_modules`, build outputs, and binary files larger than 10 MB. `deploy-hf-space.sh` creates the public Docker Space if it is missing (`create_repo` with `repo_type=space`, `space_sdk=docker`, `private=False`, `exist_ok=True`), uploads that tree, sets a random `JWT_SECRET` Space secret, and requests `cpu-basic`. Pass a prebuilt directory to upload that tree instead of building a new one. The script does not print the secret.
 
 ### Providers
 
