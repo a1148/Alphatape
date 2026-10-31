@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  name         String
+  locale       String         @default("he")
+  createdAt    DateTime       @default(now())
+  watchlists   Watchlist[]
+  alerts       Alert[]
+  notifications Notification[]
+  settings     UserSettings?
+}
+
+model UserSettings {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weights   Json
+  updatedAt DateTime @updatedAt
+}
+
+model Watchlist {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  items     WatchlistItem[]
+  createdAt DateTime        @default(now())
+
+  @@unique([userId, name])
+}
+
+model WatchlistItem {
+  id          String    @id @default(cuid())
+  watchlistId String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  symbol      String
+  createdAt   DateTime  @default(now())
+
+  @@unique([watchlistId, symbol])
+}
+
+model Alert {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol          String
+  kind            String
+  threshold       Float
+  enabled         Boolean   @default(true)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alertId   String?
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Stock {
+  symbol         String   @id
+  name           String
+  nameHe         String?
+  exchange       String
+  currency       String
+  country        String
+  sector         String
+  industry       String
+  themes         String[]
+  description    String?
+  llmThemes      String[] @default([])
+  llmThemesAsOf  DateTime?
+  llmThemesModel String?
+  lists          String[] @default([])
+  active         Boolean  @default(true)
+}
+
+model MarketSnapshot {
+  symbol                  String   @id
+  price                   Float?
+  change                  Float?
+  changePercent           Float?
+  open                    Float?
+  high                    Float?
+  low                     Float?
+  prevClose               Float?
+  volume                  Float?
+  avgVolume               Float?
+  marketCap               Float?
+  high52w                 Float?
+  low52w                  Float?
+  pe                      Float?
+  revenueGrowth           Float?
+  epsGrowth               Float?
+  shortInterest           Float?
+  institutionalOwnership  Float?
+  insiderNetShares        Float?
+  insiderNetValue         Float?
+  insiderBuys             Int?
+  insiderSells            Int?
+  consensusLabel          String?
+  strongBuy               Int?
+  buy                     Int?
+  hold                    Int?
+  sell                    Int?
+  strongSell              Int?
+  targetMean              Float?
+  targetHigh              Float?
+  targetLow               Float?
+  revisionTrend           Float?
+  rsi14                   Float?
+  macd                    Float?
+  macdSignal              Float?
+  macdHist                Float?
+  sma50                   Float?
+  sma200                  Float?
+  volatility              Float?
+  atrContraction          Float?
+  provenance              Json
+  dataMode                String
+  updatedAt               DateTime @updatedAt
+}
+
+model AnnualPoint {
+  symbol            String
+  year              Int
+  dividendPerShare  Float?
+  close             Float?
+  source            String
+  isDemo            Boolean  @default(false)
+  asOf              DateTime
+
+  @@id([symbol, year])
+}
+
+model DividendSnapshot {
+  symbol            String   @id
+  eps               Float?
+  beta              Float?
+  debtToEquity      Float?
+  interestCoverage  Float?
+  provenance        Json
+  dataMode          String
+  updatedAt         DateTime @updatedAt
+}
+
+model DailyBar {
+  symbol String
+  date   DateTime @db.Date
+  open   Float
+  high   Float
+  low    Float
+  close  Float
+  volume Float
+  source String
+  isDemo Boolean  @default(false)
+
+  @@id([symbol, date])
+  @@index([symbol])
+}
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  symbol      String
+  headline    String
+  summary     String?
+  url         String?
+  sourceName  String
+  provider    String
+  publishedAt DateTime
+  isDemo      Boolean  @default(false)
+
+  @@index([symbol, publishedAt])
+}
+
+model AiAnalysis {
+  id         String   @id @default(cuid())
+  symbol     String
+  locale     String
+  promptHash String
+  summary    String
+  why        String
+  risk       String
+  bull       String
+  bear       String
+  outlook3m  String
+  outlook1y  String
+  model      String
+  createdAt  DateTime @default(now())
+
+  @@unique([symbol, locale, promptHash])
+}

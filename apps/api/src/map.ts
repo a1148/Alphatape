@@ -1,0 +1,67 @@
+import type { MarketSnapshot, Stock } from "@prisma/client";
+import type { DataMode, ProvenanceMap, RawStock } from "@alphatape/shared";
+
+function asProvenance(value: unknown): ProvenanceMap {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as ProvenanceMap;
+}
+
+export function toRaw(stock: Stock, snap: MarketSnapshot | null): RawStock {
+  return {
+    symbol: stock.symbol,
+    name: stock.name,
+    nameHe: stock.nameHe,
+    exchange: stock.exchange,
+    currency: stock.currency,
+    country: stock.country,
+    sector: stock.sector,
+    industry: stock.industry,
+    description: stock.description,
+    profileThemes: stock.themes,
+    llmThemes: stock.llmThemes,
+    llmThemesAsOf: stock.llmThemesAsOf?.toISOString() ?? null,
+    llmThemesModel: stock.llmThemesModel,
+    price: snap?.price ?? null,
+    change: snap?.change ?? null,
+    changePercent: snap?.changePercent ?? null,
+    open: snap?.open ?? null,
+    high: snap?.high ?? null,
+    low: snap?.low ?? null,
+    prevClose: snap?.prevClose ?? null,
+    volume: snap?.volume ?? null,
+    avgVolume: snap?.avgVolume ?? null,
+    marketCap: snap?.marketCap ?? null,
+    high52w: snap?.high52w ?? null,
+    low52w: snap?.low52w ?? null,
+    pe: snap?.pe ?? null,
+    revenueGrowth: snap?.revenueGrowth ?? null,
+    epsGrowth: snap?.epsGrowth ?? null,
+    shortInterest: snap?.shortInterest ?? null,
+    institutionalOwnership: snap?.institutionalOwnership ?? null,
+    insiderNetShares: snap?.insiderNetShares ?? null,
+    insiderNetValue: snap?.insiderNetValue ?? null,
+    insiderBuys: snap?.insiderBuys ?? null,
+    insiderSells: snap?.insiderSells ?? null,
+    consensusLabel: snap?.consensusLabel ?? null,
+    strongBuy: snap?.strongBuy ?? null,
+    buy: snap?.buy ?? null,
+    hold: snap?.hold ?? null,
+    sell: snap?.sell ?? null,
+    strongSell: snap?.strongSell ?? null,
+    targetMean: snap?.targetMean ?? null,
+    targetHigh: snap?.targetHigh ?? null,
+    targetLow: snap?.targetLow ?? null,
+    revisionTrend: snap?.revisionTrend ?? null,
+    rsi14: snap?.rsi14 ?? null,
+    macd: snap?.macd ?? null,
+    macdSignal: snap?.macdSignal ?? null,
+    macdHist: snap?.macdHist ?? null,
+    sma50: snap?.sma50 ?? null,
+    sma200: snap?.sma200 ?? null,
+    volatility: snap?.volatility ?? null,
+    atrContraction: snap?.atrContraction ?? null,
+    provenance: asProvenance(snap?.provenance),
+    dataMode: (snap?.dataMode as DataMode | undefined) ?? "demo",
+    updatedAt: snap?.updatedAt.toISOString() ?? null,
+  };
+}

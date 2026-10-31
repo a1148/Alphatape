@@ -1,0 +1,16 @@
+node_modules
+.next
+dist
+.turbo
+coverage
+.env
+.env.local
+*.log
+apps/web/next-env.d.ts
+.DS_Store
+npm-debug.log*
+packages/db/src/generated
+.prisma
+*.tsbuildinfo
+/tmp
+.vercel

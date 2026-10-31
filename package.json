@@ -1,0 +1,28 @@
+{
+  "name": "alphatape",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AlphaTape — near-real-time US and TASE hot-stock scanner",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,worker,web -c blue,magenta,green \"npm run dev -w @alphatape/api\" \"npm run dev -w @alphatape/worker\" \"npm run dev -w @alphatape/web\"",
+    "test": "vitest run",
+    "db:generate": "npm run generate -w @alphatape/db",
+    "db:migrate": "npm run migrate -w @alphatape/db",
+    "db:seed": "npm run seed -w @alphatape/db",
+    "build:web": "npm run build -w @alphatape/web",
+    "start:api": "npm run start -w @alphatape/api",
+    "start:worker": "npm run start -w @alphatape/worker"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
